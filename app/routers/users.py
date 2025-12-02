@@ -12,7 +12,9 @@ router = APIRouter(prefix="/users", tags=["Users"])
 def create_user(
     user_data: UserCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    # Allow creating a user without being authenticated (signup)
+    # If you want only admins to create users, re-add a dependency that
+    # checks for admin privileges instead of `get_current_user` here.
 ):
     existing_user = db.query(User).filter(User.email == user_data.email).first()
     if existing_user:
