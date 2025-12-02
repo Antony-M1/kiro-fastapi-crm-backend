@@ -35,7 +35,9 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
     )
     db.add(jwt_session)
     db.commit()
-    
+   # Create tokens for the user
+    access_token = create_access_token(data={"sub": user.user_id})
+    refresh_token = create_refresh_token(data={"sub": user.user_id})
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token

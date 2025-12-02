@@ -25,13 +25,13 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
         expire = datetime.utcnow() + expires_delta
     else:
         expire = datetime.utcnow() + timedelta(hours=settings.ACCESS_TOKEN_EXPIRE_HOURS)
-    to_encode.update({"exp": expire, "type": "access"})
+    to_encode.update({"exp": expire, "type": "access", "sub": str(to_encode.get("sub"))})
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 def create_refresh_token(data: dict):
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    to_encode.update({"exp": expire, "type": "refresh"})
+    to_encode.update({"exp": expire, "type": "refresh", "sub": str(to_encode.get("sub"))})
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 def decode_token(token: str):
@@ -54,12 +54,41 @@ async def get_current_user(
             detail="Invalid authentication credentials"
         )
     
-    user_id: int = payload.get("sub")
-    if user_id is None:
+    user_id_str = payload.get("sub")
+    session_id = payload.get("session_id")
+    
+    if user_id_str is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials"
         )
+    
+    try:
+        user_id = int(user_id_str)
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials"
+        )
+    
+    # Check if session is valid and not revoked
+    if session_id:
+        jwt_session = db.query(JWTSession).filter(
+            JWTSession.session_id == session_id,
+            JWTSession.user_id == user_id
+        ).first()
+        
+        if not jwt_session or jwt_session.revoked:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Session has been revoked. Please login again."
+            )
+        
+        if jwt_session.expires_at < datetime.utcnow():
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Session has expired. Please login again."
+            )
     
     user = db.query(User).filter(User.user_id == user_id).first()
     if user is None or user.status != UserStatus.ACTIVE:
