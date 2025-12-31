@@ -6,7 +6,22 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="CRM Application API",
-    description="FastAPI CRM with JWT Authentication",
+    description="""
+    FastAPI CRM with JWT Authentication
+    
+    ## Authentication
+    1. Create a user via `/admin/init-admin` or `/users/`
+    2. Login via `/auth/login` to get access_token
+    3. Click the **Authorize** button (🔓) at the top right
+    4. Enter your token in this format: `Bearer <your_access_token>`
+    5. Example: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...`
+    6. Click **Authorize** and then **Close**
+    7. Now all protected endpoints will work
+    
+    ## Token Expiry
+    - Access Token: 24 hours
+    - Refresh Token: 60 days
+    """,
     version="1.0.0"
 )
 
