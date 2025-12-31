@@ -62,8 +62,23 @@ def refresh_token(request: RefreshTokenRequest, db: Session = Depends(get_db)):
             detail="User not found or inactive"
         )
     
+    # Verify the refresh token session exists and is not expired
+    jwt_session = db.query(JWTSession).filter(JWTSession.user_id == user_id).first()
+    if not jwt_session or jwt_session.expires_at < datetime.utcnow():
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token session expired or not found"
+    )
+    
+    # Only create a new access token, keep the existing refresh token
     access_token = create_access_token(data={"sub": user.user_id})
-    refresh_token = create_refresh_token(data={"sub": user.user_id})
+    
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=request.refresh_token
+    )
+    db.add(jwt_session)
+    db.commit()
     
     return TokenResponse(
         access_token=access_token,

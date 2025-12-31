@@ -100,3 +100,6 @@ uvicorn app.main:app --reload
 - Access Token: 24 hours expiry
 - Refresh Token: 60 days expiry
 - Algorithm: HS256
+
+# Debugger
+`.vscode` file is update to show the how the krio is working in debugging mode
