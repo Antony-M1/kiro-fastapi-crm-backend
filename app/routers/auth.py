@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from app.database import get_db
 from app.schemas.auth import LoginRequest, TokenResponse, RefreshTokenRequest
 from app.models.user import User, UserStatus
@@ -31,13 +31,11 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
     
     jwt_session = JWTSession(
         user_id=user.user_id,
-        expires_at=datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+        expires_at=datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     )
     db.add(jwt_session)
     db.commit()
-   # Create tokens for the user
-    access_token = create_access_token(data={"sub": user.user_id})
-    refresh_token = create_refresh_token(data={"sub": user.user_id})
+    
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token
@@ -64,11 +62,11 @@ def refresh_token(request: RefreshTokenRequest, db: Session = Depends(get_db)):
     
     # Verify the refresh token session exists and is not expired
     jwt_session = db.query(JWTSession).filter(JWTSession.user_id == user_id).first()
-    if not jwt_session or jwt_session.expires_at < datetime.utcnow():
+    if not jwt_session or jwt_session.expires_at < datetime.now(timezone.utc):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Refresh token session expired or not found"
-    )
+        )
     
     # Only create a new access token, keep the existing refresh token
     access_token = create_access_token(data={"sub": user.user_id})
@@ -77,14 +75,6 @@ def refresh_token(request: RefreshTokenRequest, db: Session = Depends(get_db)):
         access_token=access_token,
         refresh_token=request.refresh_token
     )
-    db.add(jwt_session)
-    db.commit()
-    
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token
-    )
-
 
 @router.post("/logout")
 def logout(current_user: dict = Depends(decode_token), db: Session = Depends(get_db)):
