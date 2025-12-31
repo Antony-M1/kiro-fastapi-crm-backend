@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta, timezone
 from app.database import get_db
 from app.schemas.auth import LoginRequest, TokenResponse, RefreshTokenRequest
 from app.models.user import User, UserStatus
 from app.models.jwt_session import JWTSession
 from app.auth import verify_password, create_access_token, create_refresh_token, decode_token
 from app.config import settings
+from app.timezone import now, add_days
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -31,7 +31,7 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
     
     jwt_session = JWTSession(
         user_id=user.user_id,
-        expires_at=datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+        expires_at=add_days(settings.REFRESH_TOKEN_EXPIRE_DAYS)
     )
     db.add(jwt_session)
     db.commit()
@@ -62,7 +62,7 @@ def refresh_token(request: RefreshTokenRequest, db: Session = Depends(get_db)):
     
     # Verify the refresh token session exists and is not expired
     jwt_session = db.query(JWTSession).filter(JWTSession.user_id == user_id).first()
-    if not jwt_session or jwt_session.expires_at < datetime.now(timezone.utc):
+    if not jwt_session or jwt_session.expires_at < now():
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Refresh token session expired or not found"

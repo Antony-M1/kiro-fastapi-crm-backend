@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from app.routers import auth, users, leads, customers, contacts, opportunities, admin
 from app.database import engine, Base
+from app.config import settings
+from app.timezone import now
 
 Base.metadata.create_all(bind=engine)
 
@@ -39,4 +41,8 @@ def root():
 
 @app.get("/health")
 def health_check():
-    return {"status": "healthy"}
+    return {
+        "status": "healthy",
+        "timezone": settings.TIMEZONE,
+        "server_time": now().isoformat()
+    }
