@@ -85,6 +85,31 @@ def refresh_token(request: RefreshTokenRequest, db: Session = Depends(get_db)):
         refresh_token=refresh_token
     )
 
+
 @router.post("/logout")
-def logout(db: Session = Depends(get_db)):
-    return {"message": "Logged out successfully"}
+def logout(current_user: dict = Depends(decode_token), db: Session = Depends(get_db)):
+    if current_user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token"
+        )
+    
+    user_id = current_user.get("sub")
+    
+    # Revoke all active tokens for the user
+    # Delete all JWT sessions to invalidate refresh tokens
+    jwt_sessions = db.query(JWTSession).filter(JWTSession.user_id == user_id).all()
+    for session in jwt_sessions:
+        db.delete(session)
+    
+    # Update user's token version to invalidate all access tokens
+    # This requires adding a token_version field to the User model
+    user = db.query(User).filter(User.user_id == user_id).first()
+    if user:
+        if not hasattr(user, 'token_version'):
+            user.token_version = 1
+        else:
+            user.token_version += 1
+    
+        db.commit()
+    return {"message": "All tokens revoked successfully. Please login again."}
