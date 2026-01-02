@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from app.routers import auth, users, leads, customers, contacts, opportunities, admin
 from app.database import engine, Base
 from app.config import settings
@@ -25,6 +26,15 @@ app = FastAPI(
     - Refresh Token: 60 days
     """,
     version="1.0.0"
+)
+
+# CORS middleware - allows frontend apps to call the API
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Configure specific origins in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(admin.router)
